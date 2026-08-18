@@ -1,47 +1,81 @@
 /* ============================================================
- * OFFICIAL SHOP ADMINISTRATION — js/config.js
+ * OSA — OFFICIAL SHOP ADMINISTRATOR
+ * js/config.js
  *
- * Este é o ÚNICO ficheiro autorizado a conter a Publishable Key.
- * NUNCA colocar aqui (ou em qualquer outro ficheiro do projeto):
+ * ÚNICO ficheiro autorizado a conter a Publishable Key.
+ *
+ * NUNCA colocar aqui:
  *   - service_role
  *   - secret key
- *   - qualquer chave administrativa
+ *   - chave administrativa
  *
- * Nenhum outro ficheiro pode duplicar esta chave.
+ * A Publishable Key pode ficar no frontend.
+ * A proteção dos dados deve ser feita através das RLS Policies.
  * ============================================================ */
 
 const CONFIG = {
+
   supabase: {
+
     url: 'https://veojzfnyctihrhehbjqm.supabase.co',
 
     /*
-     * ⚠️ AÇÃO OBRIGATÓRIA ANTES DE USAR O SISTEMA:
+     * Publishable Key do projeto Supabase.
      *
-     * Substitua o valor abaixo pela PUBLISHABLE KEY do projeto:
-     *   Supabase Dashboard → Project Settings → API Keys
-     *   → "Publishable key" (formato "sb_publishable_...")
-     *   (ou a chave "anon" legacy, formato "eyJ...")
-     *
-     * Sem esta chave, NENHUMA operação funcionará — e o
-     * diagnóstico do sistema irá mostrar esse erro abertamente.
+     * Esta chave é pública por natureza.
+     * A segurança NÃO depende de esconder esta chave.
+     * A segurança depende das RLS Policies do banco.
      */
-    publishableKey: 'sb_publishable_oW7MzC4Xxu0CSOMpXqwHCg_DsMGXJL9'
+
+    publishableKey:
+      'sb_publishable_oW7MzC4Xxu0CSOMpXqwHCg_DsMGXJL9'
   },
 
   app: {
-    name: 'OFFICIAL SHOP ADMINISTRATION',
-    currency: 'MZN',        // Metical moçambicano
+
+    name: 'OSA — Official Shop Administrator',
+
+    shortName: 'OSA',
+
+    currency: 'MZN',
+
     locale: 'pt-MZ',
+
     pageSize: 10,
-    sessionKey: 'officialshop.session'
+
+    /*
+     * Nome exclusivo da sessão do OSA.
+     */
+
+    sessionKey: 'osa.session'
   }
+
 };
 
-/* Verifica se a configuração mínima do Supabase está presente. */
+
+/* ============================================================
+ * Verificação da configuração mínima
+ * ============================================================ */
+
 function isSupabaseConfigured() {
-  return typeof CONFIG.supabase.url === 'string'
-      && CONFIG.supabase.url.indexOf('https://') === 0
-      && typeof CONFIG.supabase.publishableKey === 'string'
-      && CONFIG.supabase.publishableKey.length > 20
-      && CONFIG.supabase.publishableKey !== 'SUBSTITUIR_PELA_PUBLISHABLE_KEY';
+
+  return (
+
+    typeof CONFIG === 'object' &&
+
+    CONFIG.supabase &&
+
+    typeof CONFIG.supabase.url === 'string' &&
+
+    CONFIG.supabase.url.indexOf('https://') === 0 &&
+
+    typeof CONFIG.supabase.publishableKey === 'string' &&
+
+    CONFIG.supabase.publishableKey.length > 20 &&
+
+    CONFIG.supabase.publishableKey !==
+      'SUBSTITUIR_PELA_PUBLISHABLE_KEY'
+
+  );
+
 }
