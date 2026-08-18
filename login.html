@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar — OFFICIAL SHOP ADMINISTRATION</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="brand-badge">🏷</span>
+      <h1>OFFICIAL SHOP ADMINISTRATION</h1>
+      <p>Autenticação real via Supabase Auth</p>
+    </div>
+
+    <!-- FORMULÁRIO DE LOGIN -->
+    <form id="loginForm" autocomplete="off">
+      <div id="loginError" class="form-error"></div>
+
+      <div class="field">
+        <label for="email">E-mail</label>
+        <input class="input" type="email" id="email" required placeholder="utilizador@loja.co.mz">
+      </div>
+
+      <div class="field">
+        <label for="password">Palavra-passe</label>
+        <input class="input" type="password" id="password" required placeholder="••••••••">
+      </div>
+
+      <button type="submit" id="btnLogin" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">
+        Entrar
+      </button>
+
+      <div class="login-links">
+        <button type="button" id="linkRecover">Esqueci a palavra-passe</button>
+      </div>
+    </form>
+
+    <!-- RECUPERAÇÃO DE PALAVRA-PASSE -->
+    <form id="recoverForm" style="display:none;" autocomplete="off">
+      <div id="recoverError" class="form-error"></div>
+      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px;">
+        Introduza o seu e-mail. O Supabase enviará uma ligação de recuperação.
+      </p>
+      <div class="field">
+        <label for="recoverEmail">E-mail</label>
+        <input class="input" type="email" id="recoverEmail" required placeholder="utilizador@loja.co.mz">
+      </div>
+      <button type="submit" id="btnRecover" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">
+        Enviar recuperação
+      </button>
+      <div class="login-links">
+        <button type="button" id="linkBack">← Voltar ao login</button>
+      </div>
+    </form>
+
+    <div class="login-footer">
+      Sessão validada pelo Supabase · Nenhuma palavra-passe é guardada no browser
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    'use strict';
+
+    function redirectByRole(role) {
+      if (role === 'admin' || role === 'junior_admin') {
+        window.location.replace('admin.html');
+      } else if (role === 'cashier') {
+        window.location.replace('cashier.html');
+      } else {
+        UI.showToast('error', 'Role desconhecida: ' + role + '. Contacte o administrador.');
+      }
+    }
+
+    function showError(el, res, fallback) {
+      const msg = (res && res.error && res.error.message) ? res.error.message : fallback;
+      const status = res && res.status ? ' (HTTP ' + res.status + ')' : '';
+      el.textContent = msg + status;
+      el.classList.add('is-visible');
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (!isSupabaseConfigured()) {
+        UI.showToast('warning',
+          'A Publishable Key ainda não está configurada em js/config.js. O login não funcionará até ser configurada.',
+          12000);
+      }
+
+      /* Se já existe uma sessão VÁLIDA no Supabase, segue diretamente. */
+      const user = await Auth.getCurrentUser();
+      if (user.ok) {
+        const prof = await Auth.getCurrentProfile();
+        if (prof.ok && prof.data.active !== false) {
+          redirectByRole(prof.data.role);
+          return;
+        }
+      }
+
+      /* ---------- login ---------- */
+      const loginForm = document.getElementById('loginForm');
+      const loginError = document.getElementById('loginError');
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginError.classList.remove('is-visible');
+        const btn = document.getElementById('btnLogin');
+        UI.setButtonLoading(btn, true, 'A autenticar…');
+
+        const res = await Auth.login(
+          document.getElementById('email').value.trim(),
+          document.getElementById('password').value
+        );
+
+        UI.setButtonLoading(btn, false);
+
+        if (!res.ok) {
+          /* Erro REAL do Supabase — mostrado, nunca escondido. */
+          showError(loginError, res, 'Falha na autenticação.');
+          UI.showToast('error', loginError.textContent, 7000);
+          return;
+        }
+
+        UI.showToast('success', 'Sessão iniciada e validada pelo Supabase.');
+        redirectByRole(res.profile.role);
+      });
+
+      /* ---------- recuperação ---------- */
+      const recoverForm = document.getElementById('recoverForm');
+      const recoverError = document.getElementById('recoverError');
+
+      document.getElementById('linkRecover').addEventListener('click', () => {
+        loginForm.style.display = 'none';
+        recoverForm.style.display = 'block';
+      });
+      document.getElementById('linkBack').addEventListener('click', () => {
+        recoverForm.style.display = 'none';
+        loginForm.style.display = 'block';
+      });
+
+      recoverForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        recoverError.classList.remove('is-visible');
+        const btn = document.getElementById('btnRecover');
+        UI.setButtonLoading(btn, true, 'A enviar…');
+
+        const res = await Auth.requestPasswordReset(
+          document.getElementById('recoverEmail').value.trim()
+        );
+
+        UI.setButtonLoading(btn, false);
+
+        if (!res.ok) {
+          showError(recoverError, res, 'Falha ao pedir recuperação.');
+          UI.showToast('error', recoverError.textContent, 7000);
+          return;
+        }
+        UI.showToast('success', 'Pedido enviado. Se o e-mail existir, receberá uma ligação de recuperação.');
+        recoverForm.style.display = 'none';
+        loginForm.style.display = 'block';
+      });
+    });
+  </script>
+</body>
+</html>

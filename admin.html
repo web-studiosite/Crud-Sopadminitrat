@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administração — OFFICIAL SHOP ADMINISTRATION</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-badge">🏷</span>
+      <span class="label">OFFICIAL SHOP ADMINISTRATION</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="user-chip">
+      <span class="user-avatar" id="userInitial">?</span>
+      <div class="user-meta">
+        <div class="user-name" id="userName">—</div>
+        <div class="user-role" id="userRole">—</div>
+      </div>
+    </div>
+    <button class="btn btn-light btn-sm" id="btnLogout" type="button">Sair</button>
+  </header>
+
+  <main class="page">
+
+    <div class="page-header">
+      <h1>Administração</h1>
+      <p>Fase 1 — Fundação: autenticação, sessão, roles, RLS e CRUD real de produtos.</p>
+    </div>
+
+    <!-- ═══════════ DIAGNÓSTICO DO SISTEMA ═══════════ -->
+    <section class="card" id="diagCard">
+      <div class="card-header">
+        <h2>🩺 Diagnóstico do Sistema</h2>
+        <span class="hint">Testes reais contra o Supabase. Execute como <strong>admin</strong> para validar todas as operações (junior_admin não pode eliminar — por policy).</span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="btnRunDiag" type="button">↻ Executar novamente</button>
+      </div>
+      <div class="card-body flush">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Verificação</th>
+                <th>Estado</th>
+                <th>Detalhe</th>
+              </tr>
+            </thead>
+            <tbody id="diagBody">
+              <tr><td colspan="3" class="table-loading">A executar diagnóstico…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ PRODUTOS (CRUD REAL) ═══════════ -->
+    <section class="card">
+      <div class="card-header">
+        <h2>📦 Produtos</h2>
+        <span class="hint">CREATE · READ · UPDATE · DELETE reais no PostgreSQL via Supabase REST</span>
+        <div class="spacer"></div>
+        <div class="toolbar" style="flex:0;">
+          <div class="search-box">
+            <input class="input" id="searchInput" type="search" placeholder="Pesquisar por nome…">
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btnRefresh" type="button">↻</button>
+          <button class="btn btn-primary btn-sm" id="btnNewProduct" type="button">+ Novo produto</button>
+        </div>
+      </div>
+      <div class="card-body flush">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Unid.</th>
+                <th class="num">Preço compra</th>
+                <th class="num">Preço venda</th>
+                <th>Localização</th>
+                <th>Estado</th>
+                <th class="actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="productsBody">
+              <tr><td colspan="8" class="table-loading">A carregar…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════ MODAL: NOVO / EDITAR PRODUTO ═══════════ -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" id="productModalTitle">Novo produto</h3>
+      </div>
+      <form id="productForm" autocomplete="off">
+        <div class="modal-body">
+          <div id="formError" class="form-error"></div>
+          <div id="categoriesWarning" class="inline-warning">
+            A tabela <strong>categories</strong> não está acessível (execute database.sql no Supabase).
+            Pode guardar o produto sem categoria.
+          </div>
+          <div class="form-grid">
+            <div class="field span-2">
+              <label for="fName">Nome *</label>
+              <input class="input" id="fName" required maxlength="120" placeholder="Ex.: Arroz 25kg">
+            </div>
+            <div class="field">
+              <label for="fCategory">Categoria</label>
+              <select class="input" id="fCategory"></select>
+            </div>
+            <div class="field">
+              <label for="fUnit">Tipo de unidade *</label>
+              <select class="input" id="fUnit">
+                <option value="unit">Unidade</option>
+                <option value="box">Caixa</option>
+                <option value="pack">Pacote</option>
+                <option value="kg">Kg</option>
+                <option value="g">g</option>
+                <option value="l">Litro</option>
+                <option value="ml">ml</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fPurchase">Preço de compra (MZN) *</label>
+              <input class="input" id="fPurchase" type="number" min="0" step="0.01" required>
+            </div>
+            <div class="field">
+              <label for="fSale">Preço de venda (MZN) *</label>
+              <input class="input" id="fSale" type="number" min="0" step="0.01" required>
+            </div>
+            <div class="field">
+              <label for="fLocation">Localização *</label>
+              <select class="input" id="fLocation">
+                <option value="store">Loja</option>
+                <option value="warehouse">Armazém</option>
+                <option value="both">Loja + Armazém</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fActive" checked>
+                <label for="fActive">Produto ativo</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="btnCancelForm">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveProduct">Guardar no Supabase</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    'use strict';
+
+    let currentProfile = null;
+    const state = {
+      page: 1,
+      pageSize: CONFIG.app.pageSize,
+      search: '',
+      total: 0,
+      editingId: null,
+      categories: [],
+      isAdmin: false
+    };
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    /* ---------------------------------------------------------
+     * Arranque: proteção de página ANTES de carregar qualquer dado.
+     * --------------------------------------------------------- */
+    async function init() {
+      currentProfile = await Auth.requireRole(['admin', 'junior_admin']);
+      if (!currentProfile) return; /* bloqueado/redirecionado — nada protegido carrega */
+
+      state.isAdmin = currentProfile.role === 'admin';
+      document.getElementById('userName').textContent = currentProfile.name;
+      document.getElementById('userRole').textContent = currentProfile.role;
+      document.getElementById('userInitial').textContent =
+        (currentProfile.name || '?').charAt(0).toUpperCase();
+
+      bindEvents();
+      runDiagnostics();
+      await loadCategories();
+      await loadProducts();
+    }
+
+    function bindEvents() {
+      document.getElementById('btnLogout').addEventListener('click', () => Auth.logout());
+      document.getElementById('btnRunDiag').addEventListener('click', runDiagnostics);
+      document.getElementById('btnNewProduct').addEventListener('click', () => openProductForm(null));
+      document.getElementById('btnRefresh').addEventListener('click', loadProducts);
+      document.getElementById('productForm').addEventListener('submit', onSaveProduct);
+      document.getElementById('btnCancelForm').addEventListener('click', () => UI.closeModal('productModal'));
+      document.getElementById('productModal').addEventListener('click', (e) => {
+        if (e.target.id === 'productModal') UI.closeModal('productModal');
+      });
+
+      let timer = null;
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          state.search = e.target.value.trim();
+          state.page = 1;
+          loadProducts();
+        }, 350);
+      });
+
+      /* Delegação de eventos para ações da tabela. */
+      document.getElementById('productsBody').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        if (btn.dataset.action === 'edit') openEdit(id);
+        if (btn.dataset.action === 'delete') deleteProduct(id, btn.getAttribute('data-name'));
+      });
+    }
+
+    /* ---------------------------------------------------------
+     * Erros: mostrados SEMPRE, com operação + HTTP status.
+     * --------------------------------------------------------- */
+    function handleError(res, context) {
+      const msg = (res.error && res.error.message) || 'Erro desconhecido';
+      const status = res.status ? ' (HTTP ' + res.status + ')' : '';
+      UI.showToast('error', context + ': ' + msg + status, 8000);
+      if (res.status === 401) {
+        setTimeout(() => window.location.replace('login.html'), 1500);
+      }
+    }
+
+    function categoryName(id) {
+      if (!id) return '—';
+      const c = state.categories.find((x) => x.id === id);
+      return c ? c.name : '—';
+    }
+
+    /* ---------------------------------------------------------
+     * CATEGORIAS (leitura para o formulário; CRUD completo na Fase 2)
+     * --------------------------------------------------------- */
+    async function loadCategories() {
+      const res = await Data.read('categories', {
+        order: { column: 'name', ascending: true },
+        limit: 200
+      });
+      state.categories = res.ok ? res.data : [];
+      document.getElementById('categoriesWarning').classList.toggle('is-visible', !res.ok);
+
+      const sel = document.getElementById('fCategory');
+      sel.innerHTML = '<option value="">— Sem categoria —</option>';
+      state.categories.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    }
+
+    /* ---------------------------------------------------------
+     * READ — produtos (com pesquisa, ordenação, paginação, contagem)
+     * --------------------------------------------------------- */
+    async function loadProducts() {
+      const tbody = document.getElementById('productsBody');
+      tbody.innerHTML = '<tr><td colspan="8" class="table-loading">A carregar produtos do Supabase…</td></tr>';
+
+      const res = await Data.read('products', {
+        withCount: true,
+        search: { columns: ['name'], term: state.search },
+        order: { column: 'created_at', ascending: false },
+        limit: state.pageSize,
+        offset: (state.page - 1) * state.pageSize
+      });
+
+      if (!res.ok) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-error">Falha ao ler produtos: ' +
+          UI.escapeHtml(res.error.message) + ' (HTTP ' + res.status + ')</td></tr>';
+        handleError(res, 'Ler produtos');
+        return;
+      }
+
+      state.total = (res.total !== null && res.total !== undefined) ? res.total : res.data.length;
+      renderProducts(res.data);
+      UI.renderPagination(
+        document.getElementById('pager'),
+        state.page, state.pageSize, state.total,
+        (p) => { state.page = p; loadProducts(); }
+      );
+    }
+
+    function renderProducts(products) {
+      const tbody = document.getElementById('productsBody');
+      if (!products.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Nenhum produto encontrado. Crie o primeiro com «+ Novo produto».</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      products.forEach((p) => {
+        const tr = document.createElement('tr');
+
+        const tdName = document.createElement('td');
+        tdName.innerHTML = '<strong></strong>';
+        tdName.querySelector('strong').textContent = p.name;
+
+        const tdCat = document.createElement('td');
+        tdCat.textContent = categoryName(p.category_id);
+
+        const tdUnit = document.createElement('td');
+        tdUnit.textContent = p.unit_type || '—';
+
+        const tdPurchase = document.createElement('td');
+        tdPurchase.className = 'num';
+        tdPurchase.textContent = UI.formatMZN(p.purchase_price);
+
+        const tdSale = document.createElement('td');
+        tdSale.className = 'num';
+        tdSale.textContent = UI.formatMZN(p.sale_price);
+
+        const tdLoc = document.createElement('td');
+        tdLoc.textContent = p.location === 'store' ? 'Loja' : p.location === 'warehouse' ? 'Armazém' : 'Loja + Armazém';
+
+        const tdState = document.createElement('td');
+        tdState.innerHTML = p.active
+          ? '<span class="badge badge-success">ATIVO</span>'
+          : '<span class="badge badge-muted">INATIVO</span>';
+
+        const tdActions = document.createElement('td');
+        tdActions.className = 'actions';
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-sm btn-icon-edit';
+        editBtn.dataset.action = 'edit';
+        editBtn.setAttribute('data-id', p.id);
+        editBtn.textContent = '✎ Editar';
+        tdActions.appendChild(editBtn);
+
+        if (state.isAdmin) {
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'btn btn-sm btn-icon-delete';
+          delBtn.dataset.action = 'delete';
+          delBtn.setAttribute('data-id', p.id);
+          delBtn.setAttribute('data-name', p.name);
+          delBtn.textContent = '🗑 Eliminar';
+          tdActions.appendChild(delBtn);
+        }
+
+        tr.append(tdName, tdCat, tdUnit, tdPurchase, tdSale, tdLoc, tdState, tdActions);
+        tbody.appendChild(tr);
+      });
+    }
+
+    /* ---------------------------------------------------------
+     * CREATE / UPDATE
+     * --------------------------------------------------------- */
+    function openProductForm(product) {
+      state.editingId = product ? product.id : null;
+      document.getElementById('productModalTitle').textContent =
+        product ? 'Editar produto' : 'Novo produto';
+      document.getElementById('formError').classList.remove('is-visible');
+
+      document.getElementById('fName').value = product ? product.name : '';
+      document.getElementById('fCategory').value = product && product.category_id ? product.category_id : '';
+      document.getElementById('fUnit').value = product ? product.unit_type : 'unit';
+      document.getElementById('fPurchase').value = product ? product.purchase_price : '';
+      document.getElementById('fSale').value = product ? product.sale_price : '';
+      document.getElementById('fLocation').value = product ? product.location : 'store';
+      document.getElementById('fActive').checked = product ? !!product.active : true;
+
+      UI.openModal('productModal');
+      document.getElementById('fName').focus();
+    }
+
+    async function openEdit(id) {
+      const res = await Data.readOne('products', id);
+      if (!res.ok) { handleError(res, 'Ler produto'); return; }
+      openProductForm(res.data);
+    }
+
+    async function onSaveProduct(e) {
+      e.preventDefault();
+      const formError = document.getElementById('formError');
+      formError.classList.remove('is-visible');
+
+      const payload = {
+        name: document.getElementById('fName').value.trim(),
+        category_id: document.getElementById('fCategory').value || null,
+        unit_type: document.getElementById('fUnit').value,
+        purchase_price: parseFloat(document.getElementById('fPurchase').value),
+        sale_price: parseFloat(document.getElementById('fSale').value),
+        location: document.getElementById('fLocation').value,
+        active: document.getElementById('fActive').checked
+      };
+
+      /* 1. validar dados (antes de qualquer escrita) */
+      let validationError = null;
+      if (!payload.name) validationError = 'O nome do produto é obrigatório.';
+      else if (isNaN(payload.purchase_price) || payload.purchase_price < 0)
+        validationError = 'Preço de compra inválido (≥ 0).';
+      else if (isNaN(payload.sale_price) || payload.sale_price < 0)
+        validationError = 'Preço de venda inválido (≥ 0).';
+      if (validationError) {
+        formError.textContent = validationError;
+        formError.classList.add('is-visible');
+        return;
+      }
+
+      const btn = document.getElementById('btnSaveProduct');
+      UI.setButtonLoading(btn, true, 'A gravar no Supabase…');
+
+      /* 2-5. INSERT/PATCH → verificar HTTP status + erro Supabase + registro devolvido */
+      const res = state.editingId
+        ? await Data.update('products', state.editingId, payload)
+        : await Data.create('products', payload);
+
+      UI.setButtonLoading(btn, false);
+
+      if (!res.ok) {
+        /* Erro real mostrado — NUNCA falso sucesso. */
+        handleError(res, state.editingId ? 'Atualizar produto' : 'Criar produto');
+        return;
+      }
+
+      /* 6-7. persistência confirmada → só agora toast de sucesso + UI */
+      UI.showToast('success', state.editingId
+        ? 'Produto atualizado e confirmado no Supabase.'
+        : 'Produto criado e confirmado no Supabase.');
+      UI.closeModal('productModal');
+      await loadProducts(); /* a UI reflete o estado real do banco */
+    }
+
+    /* ---------------------------------------------------------
+     * DELETE (reservado a admin — reforçado por RLS no banco)
+     * --------------------------------------------------------- */
+    async function deleteProduct(id, name) {
+      const confirmed = await UI.confirmDialog({
+        title: 'Eliminar produto',
+        message: 'Eliminar definitivamente «' + name + '»? A operação é real e será confirmada no Supabase.',
+        confirmText: 'Eliminar',
+        danger: true
+      });
+      if (!confirmed) return;
+
+      const res = await Data.delete('products', id);
+      if (!res.ok) { handleError(res, 'Eliminar produto'); return; }
+
+      UI.showToast('success', 'Produto eliminado — ausência confirmada no Supabase.');
+      if (state.page > 1 && (state.total - 1) <= (state.page - 1) * state.pageSize) state.page--;
+      await loadProducts();
+    }
+
+    /* ---------------------------------------------------------
+     * 🩺 DIAGNÓSTICO DO SISTEMA
+     * --------------------------------------------------------- */
+    function diagDetail(res, endpoint) {
+      const msg = (res.error && res.error.message) || 'erro desconhecido';
+      return endpoint + ' → ' + msg + ' (HTTP ' + res.status + ')';
+    }
+
+    function renderDiag(rows) {
+      const tbody = document.getElementById('diagBody');
+      tbody.innerHTML = '';
+      rows.forEach((r) => {
+        const tr = document.createElement('tr');
+        const tdName = document.createElement('td');
+        tdName.innerHTML = '<strong></strong>';
+        tdName.querySelector('strong').textContent = r.name;
+
+        const tdStatus = document.createElement('td');
+        tdStatus.innerHTML = r.ok
+          ? '<span class="diag-status diag-ok">✓ OK</span>'
+          : '<span class="diag-status diag-error">✕ ERRO</span>';
+
+        const tdDetail = document.createElement('td');
+        tdDetail.className = 'diag-detail';
+        tdDetail.textContent = r.detail || '';
+
+        tr.append(tdName, tdStatus, tdDetail);
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function runDiagnostics() {
+      const tbody = document.getElementById('diagBody');
+      tbody.innerHTML = '<tr><td colspan="3" class="table-loading">A executar testes reais contra o Supabase…</td></tr>';
+      const rows = [];
+      const add = (name, ok, detail) => rows.push({ name: name, ok: !!ok, detail: detail || '' });
+
+      /* 1. Configuração */
+      add('Supabase URL', isSupabaseConfigured(),
+        isSupabaseConfigured()
+          ? CONFIG.supabase.url
+          : 'Publishable Key em falta — configure js/config.js');
+
+      /* 2. Fetch API */
+      add('Fetch API', typeof fetch === 'function',
+        typeof fetch === 'function' ? 'disponível no browser' : 'browser sem suporte a fetch()');
+
+      if (!isSupabaseConfigured()) {
+        ['Auth', 'REST API', 'READ', 'CREATE', 'UPDATE', 'DELETE'].forEach((n) =>
+          add(n, false, 'não executado — configure primeiro a Publishable Key em js/config.js'));
+        renderDiag(rows);
+        return;
+      }
+
+      /* 3. Auth — sessão validada pelo Supabase */
+      const user = await Auth.getCurrentUser();
+      add('Auth', user.ok,
+        user.ok ? ('sessão válida: ' + (user.data.email || user.data.id)) : diagDetail(user, 'GET /auth/v1/user'));
+
+      /* 4. REST API / READ */
+      const readRes = await Data.read('products', { select: 'id', limit: 1 });
+      add('REST API', readRes.ok,
+        readRes.ok ? 'PostgREST acessível' : diagDetail(readRes, 'GET /rest/v1/products'));
+      add('READ', readRes.ok,
+        readRes.ok ? ('products: ' + res_count(readRes) + ' registo(s) devolvidos') : diagDetail(readRes, 'SELECT products'));
+
+      /* 5-7. CREATE → UPDATE → DELETE (produto de diagnóstico, eliminado no fim) */
+      if (readRes.ok) {
+        const stamp = 'DIAG-' + Date.now();
+
+        const c = await Data.create('products', {
+          name: stamp, unit_type: 'unit', purchase_price: 0, sale_price: 0,
+          location: 'store', active: false
+        });
+        add('CREATE', c.ok,
+          c.ok ? ('registro criado e devolvido pelo Supabase (id ' + c.data.id + ')')
+               : diagDetail(c, 'POST /rest/v1/products'));
+
+        if (c.ok) {
+          const u = await Data.update('products', c.data.id, { name: stamp + '-UPD' });
+          add('UPDATE', u.ok && u.data.name === stamp + '-UPD',
+            u.ok ? ('alteração confirmada: ' + u.data.name)
+                 : diagDetail(u, 'PATCH /rest/v1/products'));
+
+          const d = await Data.delete('products', c.data.id);
+          add('DELETE', d.ok,
+            d.ok ? 'ausência confirmada no Supabase'
+                 : diagDetail(d, 'DELETE /rest/v1/products'));
+        } else {
+          add('UPDATE', false, 'não executado — CREATE falhou');
+          add('DELETE', false, 'não executado — CREATE falhou');
+        }
+      } else {
+        add('CREATE', false, 'não executado — READ falhou');
+        add('UPDATE', false, 'não executado — READ falhou');
+        add('DELETE', false, 'não executado — READ falhou');
+      }
+
+      renderDiag(rows);
+    }
+
+    function res_count(res) {
+      return Array.isArray(res.data) ? res.data.length : 0;
+    }
+  </script>
+</body>
+</html>

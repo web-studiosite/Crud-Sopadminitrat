@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caixa — OFFICIAL SHOP ADMINISTRATION</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/paginacashier.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-badge">🏷</span>
+      <span class="label">OFFICIAL SHOP · CAIXA</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="user-chip">
+      <span class="user-avatar" id="userInitial">?</span>
+      <div class="user-meta">
+        <div class="user-name" id="userName">—</div>
+        <div class="user-role" id="userRole">cashier</div>
+      </div>
+    </div>
+    <button class="btn btn-light btn-sm" id="btnLogout" type="button">Sair</button>
+  </header>
+
+  <main class="cashier-page">
+
+    <div class="cashier-hero">
+      <div class="hero-icon">🛒</div>
+      <div>
+        <h1>Ponto de Venda</h1>
+        <p>Sessão autenticada e validada pelo Supabase</p>
+      </div>
+    </div>
+
+    <div class="cashier-notice">
+      <span>ℹ</span>
+      <div>
+        <strong>Fase 1 concluída:</strong> autenticação, sessão e consulta de produtos autorizados já são reais.
+        O registo de vendas (POS), stock e caixa diário serão ativados nas Fases 5–7.
+        Por decisão de engenharia, <strong>nenhum botão de venda existe antes de a operação real estar implementada</strong>.
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Produtos autorizados</h2>
+        <span class="hint">Consulta em tempo real · sem preço de compra (restrição da role cashier)</span>
+        <div class="spacer"></div>
+        <div class="toolbar" style="flex:0;">
+          <div class="search-box">
+            <input class="input" id="searchInput" type="search" placeholder="Pesquisar produto…">
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btnRefresh" type="button">↻ Atualizar</button>
+        </div>
+      </div>
+      <div class="pos-grid" id="productsGrid">
+        <div class="pos-empty">A carregar produtos do Supabase…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    'use strict';
+
+    let currentProfile = null;
+    const state = { search: '' };
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+      /* Proteção real: sem role 'cashier' validada pelo Supabase,
+       * NENHUM dado é carregado. */
+      currentProfile = await Auth.requireRole(['cashier']);
+      if (!currentProfile) return;
+
+      document.getElementById('userName').textContent = currentProfile.name;
+      document.getElementById('userInitial').textContent =
+        (currentProfile.name || '?').charAt(0).toUpperCase();
+
+      document.getElementById('btnLogout').addEventListener('click', () => Auth.logout());
+      document.getElementById('btnRefresh').addEventListener('click', loadProducts);
+
+      let timer = null;
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          state.search = e.target.value.trim();
+          loadProducts();
+        }, 350);
+      });
+
+      await loadProducts();
+    }
+
+    /*
+     * Consulta real de produtos autorizados para o POS.
+     * O select NÃO inclui purchase_price nem qualquer dado financeiro
+     * restrito — e o RLS no banco garante a proteção mesmo que
+     * alguém manipule o JavaScript.
+     */
+    async function loadProducts() {
+      const grid = document.getElementById('productsGrid');
+      grid.innerHTML = '<div class="pos-empty">A carregar produtos do Supabase…</div>';
+
+      const res = await Data.read('products', {
+        select: 'id,name,unit_type,sale_price,location',
+        filters: [{ column: 'active', op: 'eq', value: true }],
+        search: { columns: ['name'], term: state.search },
+        order: { column: 'name', ascending: true },
+        limit: 100
+      });
+
+      if (!res.ok) {
+        const msg = (res.error && res.error.message) || 'Erro desconhecido';
+        grid.innerHTML = '<div class="pos-empty" style="color:var(--danger);">Falha ao ler produtos: ' +
+          UI.escapeHtml(msg) + ' (HTTP ' + res.status + ')</div>';
+        UI.showToast('error', 'Ler produtos: ' + msg + ' (HTTP ' + res.status + ')', 7000);
+        if (res.status === 401) setTimeout(() => window.location.replace('login.html'), 1500);
+        return;
+      }
+
+      if (!res.data.length) {
+        grid.innerHTML = '<div class="pos-empty">Nenhum produto ativo encontrado.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      res.data.forEach((p) => {
+        const card = document.createElement('div');
+        card.className = 'pos-card';
+        card.innerHTML =
+          '<div class="pos-name"></div>' +
+          '<div class="pos-meta"></div>' +
+          '<div class="pos-price"></div>';
+        card.querySelector('.pos-name').textContent = p.name;
+        card.querySelector('.pos-meta').textContent =
+          (p.location === 'store' ? 'Loja' : p.location === 'warehouse' ? 'Armazém' : 'Loja + Armazém');
+        card.querySelector('.pos-price').innerHTML =
+          UI.escapeHtml(UI.formatMZN(p.sale_price)) +
+          ' <span class="pos-unit">/ ' + UI.escapeHtml(p.unit_type || 'un') + '</span>';
+        grid.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>
