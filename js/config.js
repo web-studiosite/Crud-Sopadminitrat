@@ -12,7 +12,7 @@
 
 const CONFIG = {
   supabase: {
-    url: 'https://zkaiernafgdkabbyvdkl.supabase.co',
+    url: 'https://veojzfnyctihrhehbjqm.supabase.co',
 
     /*
      * ⚠️ AÇÃO OBRIGATÓRIA ANTES DE USAR O SISTEMA:
@@ -25,7 +25,7 @@ const CONFIG = {
      * Sem esta chave, NENHUMA operação funcionará — e o
      * diagnóstico do sistema irá mostrar esse erro abertamente.
      */
-    publishableKey: 'SUBSTITUIR_PELA_PUBLISHABLE_KEY'
+    publishableKey: 'sb_publishable_oW7MzC4Xxu0CSOMpXqwHCg_DsMGXJL9'
   },
 
   app: {
