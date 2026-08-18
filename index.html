@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>OSA — Official Shop Administrator</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <div class="splash">
+
+    <div class="brand-badge" aria-hidden="true">🏷</div>
+
+    <strong>OSA</strong>
+
+    <span>Official Shop Administrator</span>
+
+    <div class="splash-loader" aria-hidden="true"></div>
+
+    <p id="splashStatus">
+      A validar a sessão junto do Supabase…
+    </p>
+
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+
+  <script>
+    'use strict';
+
+    (async function () {
+
+      const status = document.getElementById('splashStatus');
+
+      try {
+
+        if (typeof isSupabaseConfigured !== 'function') {
+          status.textContent =
+            'Erro: configuração do Supabase não encontrada.';
+          return;
+        }
+
+        if (!isSupabaseConfigured()) {
+
+          status.textContent =
+            'Supabase não configurado. A redirecionar para o login…';
+
+          setTimeout(function () {
+            window.location.replace('login.html');
+          }, 1500);
+
+          return;
+        }
+
+        status.textContent =
+          'A validar a sessão junto do Supabase…';
+
+        const user = await Auth.getCurrentUser();
+
+        if (!user || !user.ok) {
+          window.location.replace('login.html');
+          return;
+        }
+
+        status.textContent =
+          'A verificar o perfil de utilizador…';
+
+        const profile = await Auth.getCurrentProfile(true);
+
+        if (!profile || !profile.ok) {
+
+          status.textContent =
+            'Perfil de utilizador não encontrado. A redirecionar…';
+
+          setTimeout(function () {
+            Auth.clearSession();
+            window.location.replace('login.html');
+          }, 1500);
+
+          return;
+        }
+
+        if (profile.data.active === false) {
+
+          status.textContent =
+            'Esta conta está desativada.';
+
+          setTimeout(function () {
+            Auth.clearSession();
+            window.location.replace('login.html');
+          }, 1500);
+
+          return;
+        }
+
+        const role = profile.data.role;
+
+        if (role === 'admin' || role === 'junior_admin') {
+          window.location.replace('admin.html');
+          return;
+        }
+
+        if (role === 'cashier') {
+          window.location.replace('cashier.html');
+          return;
+        }
+
+        status.textContent =
+          'Role desconhecida: ' + (role || 'não definida');
+
+      } catch (error) {
+
+        console.error('OSA — erro no router inicial:', error);
+
+        status.textContent =
+          'Erro ao iniciar o OSA. A redirecionar para o login…';
+
+        setTimeout(function () {
+          window.location.replace('login.html');
+        }, 1800);
+      }
+
+    })();
+  </script>
+
+</body>
+</html>
